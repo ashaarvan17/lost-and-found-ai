@@ -1,0 +1,69 @@
+
+# ==================================
+# ENVIRONMENT VARIABLES AND SECRETS
+# ==================================
+.env
+.env.*
+**/.env
+**/.env.*
+
+!.env.example
+!**/.env.example
+!.env.test.example
+!**/.env.test.example
+!.env.production.example
+!**/.env.production.example
+
+# ==================================
+# NODE.JS
+# ==================================
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+**/dist/
+
+# ==================================
+# PYTHON
+# ==================================
+venv/
+.venv/
+**/venv/
+**/.venv/
+env/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# ==================================
+# LOGS
+# ==================================
+*.log
+npm-debug.log*
+
+# ==================================
+# UPLOADS AND GENERATED FILES
+# ==================================
+uploads/
+backend/uploads/
+temp/
+tmp/
+coverage/
+**/coverage/
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+
+# ==================================
+# IDE AND EDITOR
+# ==================================
+.vscode/
+.idea/
+
+# ==================================
+# OPERATING SYSTEM
+# ==================================
+.DS_Store
+Thumbs.db

@@ -8,7 +8,7 @@ import {
   CalendarDays,
   Package,
 } from "lucide-react";
-import { createReport } from "../services/api";
+import { createReport, previewValueTier } from "../services/api";
 import "../styles/pages.css";
 
 const initialForm = {
@@ -18,6 +18,8 @@ const initialForm = {
   description: "",
   location: "",
   date: "",
+  estimatedReplacementValueInr: "",
+  ownershipQuestions: [],
 };
 
 export default function ReportItem() {
@@ -26,6 +28,7 @@ export default function ReportItem() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [questionCount, setQuestionCount] = useState(0);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -34,6 +37,19 @@ export default function ReportItem() {
       ...previousForm,
       [name]: value,
     }));
+  }
+
+  async function handleValueBlur() {
+    if (!form.estimatedReplacementValueInr) { setQuestionCount(0); return; }
+    try {
+      const preview = await previewValueTier(form.estimatedReplacementValueInr);
+      setQuestionCount(preview.questionCount);
+      setForm((current) => ({ ...current, ownershipQuestions: Array.from({ length: preview.questionCount }, (_, index) => current.ownershipQuestions[index] || { prompt: "", expectedAnswer: "" }) }));
+    } catch (error) { setMessage(error.message); setMessageType("error"); setQuestionCount(0); }
+  }
+
+  function handleOwnershipChange(index, field, value) {
+    setForm((current) => ({ ...current, ownershipQuestions: current.ownershipQuestions.map((question, questionIndex) => questionIndex === index ? { ...question, [field]: value } : question) }));
   }
 
   async function handleSubmit(event) {
@@ -54,6 +70,7 @@ export default function ReportItem() {
         location: form.location.trim(),
         date: form.date,
         imageUrl: "",
+        ...(form.reportType === "Found" ? { estimatedReplacementValueInr: form.estimatedReplacementValueInr, ownershipQuestions: form.ownershipQuestions } : {}),
       };
 
       // Send the report to Express, which saves it in MongoDB.
@@ -64,6 +81,7 @@ export default function ReportItem() {
 
       // Reset the form after successful submission.
       setForm(initialForm);
+      setQuestionCount(0);
       setImage(null);
 
       // Clear the file input after submission.
@@ -88,6 +106,7 @@ export default function ReportItem() {
 
   function handleClearForm() {
     setForm(initialForm);
+    setQuestionCount(0);
     setImage(null);
     setMessage("");
     setMessageType("");
@@ -201,6 +220,8 @@ export default function ReportItem() {
         </div>
 
         <div className="form-grid">
+          {form.reportType === "Found" && <label className="form-field form-field-full"><span>Estimated replacement value (INR) *</span><input type="number" min="0" step="1" name="estimatedReplacementValueInr" value={form.estimatedReplacementValueInr} onChange={handleChange} onBlur={handleValueBlur} placeholder="Whole amount in rupees" required />{questionCount > 0 && <small>Backend assigned verification requires {questionCount} questions. The value tier is assigned when you submit.</small>}</label>}
+          {form.reportType === "Found" && questionCount > 0 && <div className="form-field-full"><h3>Private ownership verification</h3><p>Write questions only the genuine owner can answer. Expected answers stay private. Review each question and answer before submitting.</p>{form.ownershipQuestions.map((question, index) => <div className="form-grid" key={index}><label className="form-field form-field-full"><span>Question {index + 1} *</span><input value={question.prompt} maxLength={300} onChange={(event) => handleOwnershipChange(index, "prompt", event.target.value)} required placeholder="Ask about a distinctive mark, accessory, or hidden detail" /></label><label className="form-field form-field-full"><span>Expected answer {index + 1} *</span><input value={question.expectedAnswer} maxLength={1000} onChange={(event) => handleOwnershipChange(index, "expectedAnswer", event.target.value)} required /></label></div>)}</div>}
           <label className="form-field">
             <span>Item name *</span>
 

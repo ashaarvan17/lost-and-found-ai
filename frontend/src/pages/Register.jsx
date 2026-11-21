@@ -13,7 +13,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-import { registerUser } from "../services/api";
+import { registerUser, submitLocalAdminApplication } from "../services/api";
 import "../styles/pages.css";
 
 export default function Register() {
@@ -21,12 +21,17 @@ export default function Register() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [registrationType, setRegistrationType] = useState("user");
+  const [application, setApplication] = useState(null);
 
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     password: "",
     confirmPassword: "",
+    phone: "",
+    requestedArea: "",
+    verificationDetails: "",
   });
 
   const [error, setError] = useState("");
@@ -69,13 +74,24 @@ export default function Register() {
       setLoading(true);
       setError("");
 
-      // Send the registration details to the backend.
-      // The backend expects the property to be named "name".
-      await registerUser({
+      const credentials = {
         name: formData.fullName.trim(),
         email: formData.email.trim(),
         password: formData.password,
-      });
+      };
+
+      if (registrationType === "local-admin") {
+        const result = await submitLocalAdminApplication({
+          ...credentials,
+          requestedArea: formData.requestedArea.trim(),
+          phone: formData.phone.trim(),
+          verificationDetails: formData.verificationDetails.trim(),
+        });
+        setApplication(result.data);
+        return;
+      }
+
+      await registerUser(credentials);
 
       // Registration succeeded. Navigate to login.
       navigate("/login", {
@@ -96,7 +112,7 @@ export default function Register() {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-page auth-page-register">
       <div className="auth-card">
         <Link to="/" className="auth-brand">
           <span className="auth-brand-icon">
@@ -108,15 +124,31 @@ export default function Register() {
           </span>
         </Link>
 
+        {application ? (
+          <section className="application-confirmation" role="status">
+            <span className="eyebrow">APPLICATION RECEIVED</span>
+            <h1>Thanks, {formData.fullName.trim().split(/\s+/)[0]}.</h1>
+            <p>Your Local Admin application for <strong>{application.requestedArea}</strong> is pending Super Admin review.</p>
+            <p>Approval and a separate area assignment are both required before recovery tasks become available.</p>
+            <Link className="button button-primary auth-submit" to="/login">Continue to sign in</Link>
+          </section>
+        ) : <>
         <div className="auth-heading">
           <span className="eyebrow">JOIN FINDBACK AI</span>
 
           <h1>Create your account</h1>
 
           <p>
-            Let's help lost belongings find their way home.
+            Choose how you want to use FindBack AI.
           </p>
         </div>
+
+        <div className="auth-tabs" role="tablist" aria-label="Registration type">
+          <button type="button" role="tab" aria-selected={registrationType === "user"} className={registrationType === "user" ? "auth-tab auth-tab-active" : "auth-tab"} onClick={() => { setRegistrationType("user"); setError(""); }}>Regular account</button>
+          <button type="button" role="tab" aria-selected={registrationType === "local-admin"} className={registrationType === "local-admin" ? "auth-tab auth-tab-active" : "auth-tab"} onClick={() => { setRegistrationType("local-admin"); setError(""); }}>Local Admin application</button>
+        </div>
+
+        {registrationType === "local-admin" && <p className="auth-approval-notice">Local Admin access requires approval from the Super Admin. Your application remains pending until it has been reviewed and approved. A separate area assignment is also required.</p>}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label htmlFor="fullName">Full name</label>
@@ -137,6 +169,15 @@ export default function Register() {
               disabled={loading}
             />
           </div>
+
+          {registrationType === "local-admin" && <>
+            <label htmlFor="requestedArea">Requested operating area</label>
+            <div className="auth-input-wrapper"><Search size={18} /><input id="requestedArea" name="requestedArea" type="text" placeholder="City, campus, or neighborhood" value={formData.requestedArea} onChange={handleChange} maxLength={200} required disabled={loading} /></div>
+            <label htmlFor="phone">Phone (optional)</label>
+            <div className="auth-input-wrapper"><Mail size={18} /><input id="phone" name="phone" type="tel" placeholder="For application follow-up" value={formData.phone} onChange={handleChange} maxLength={40} autoComplete="tel" disabled={loading} /></div>
+            <label htmlFor="verificationDetails">Additional details (optional)</label>
+            <textarea className="auth-textarea" id="verificationDetails" name="verificationDetails" placeholder="Share relevant experience or availability. Do not include sensitive identity documents." value={formData.verificationDetails} onChange={handleChange} maxLength={500} disabled={loading} />
+          </>}
 
           <label htmlFor="email">Email address</label>
 
@@ -222,7 +263,7 @@ export default function Register() {
             className="button button-primary auth-submit"
             disabled={loading}
           >
-            {loading ? "Creating Account..." : "Create Account"}
+            {loading ? "Submitting..." : registrationType === "user" ? "Create Account" : "Submit application"}
 
             {!loading && <ArrowRight size={17} />}
           </button>
@@ -232,6 +273,7 @@ export default function Register() {
           Already have an account?{" "}
           <Link to="/login">Sign in</Link>
         </p>
+        </>}
       </div>
     </div>
   );

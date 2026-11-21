@@ -1,0 +1,28 @@
+services:
+  mongodb:
+    image: mongo:8.0.30-noble
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - findback_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  replica-init:
+    image: mongo:8.0.30-noble
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    entrypoint: ["mongosh"]
+    command: ["--host", "mongodb:27017", "--quiet", "/scripts/init-replica.js"]
+    volumes:
+      - ./init-replica.js:/scripts/init-replica.js:ro
+    restart: "no"
+
+volumes:
+  findback_mongo_data:

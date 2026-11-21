@@ -1,8 +1,13 @@
+
+import { useState } from "react";
 import { MapPin, CalendarDays, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { resolveImageUrl } from "../services/api";
 import "./components.css";
 
 export default function ItemCard({ item }) {
+  const [imageError, setImageError] = useState(false);
+
   if (!item) return null;
 
   const {
@@ -16,19 +21,18 @@ export default function ItemCard({ item }) {
   } = item;
 
   const isFound = String(status).toLowerCase() === "found";
+  const isResolved = String(status).toLowerCase() === "resolved";
 
   return (
     <article className="item-card">
       <div className="item-image-wrapper">
-        {image ? (
+        {image && !imageError ? (
           <img
-            src={image}
+            src={resolveImageUrl(image)}
             alt={title}
             className="item-image"
             loading="lazy"
-            onError={(event) => {
-              event.currentTarget.style.display = "none";
-            }}
+            onError={() => setImageError(true)}
           />
         ) : (
           <div className="item-image-placeholder">
@@ -38,7 +42,7 @@ export default function ItemCard({ item }) {
 
         <span
           className={`status-badge ${
-            isFound ? "status-found" : "status-lost"
+            isResolved ? "status-resolved" : isFound ? "status-found" : "status-lost"
           }`}
         >
           {status}

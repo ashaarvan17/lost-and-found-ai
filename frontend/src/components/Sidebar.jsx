@@ -6,9 +6,11 @@ import {
   ClipboardList,
   Sparkles,
   ShieldCheck,
-  Settings,
-  CircleHelp,
+  KeyRound,
   X,
+  UserCog,
+  ClipboardCheck,
+  Users,
 } from "lucide-react";
 import "./components.css";
 
@@ -45,7 +47,17 @@ const menuItems = [
   },
 ];
 
-export default function Sidebar({ open = true, onClose }) {
+export default function Sidebar({ open = true, onClose, user }) {
+  const roleItems = [
+    ...(user?.isLocalAdmin ? [{ label: "Local Admin Tasks", path: "/recovery/tasks", icon: KeyRound }] : []),
+    ...(user?.role === "admin" ? [
+      { label: "Super Admin", path: "/admin", icon: UserCog },
+      { label: "Claim Review", path: "/admin/review", icon: ShieldCheck },
+      { label: "Local Admin applications", path: "/admin/local-admin-applications", icon: ClipboardCheck },
+      { label: "Area assignments", path: "/admin/local-admins", icon: Users },
+    ] : []),
+  ];
+  const visibleItems = [...menuItems, ...roleItems];
   return (
     <>
       {open && (
@@ -80,7 +92,7 @@ export default function Sidebar({ open = true, onClose }) {
         <div className="sidebar-section-label">WORKSPACE</div>
 
         <nav className="sidebar-nav">
-          {menuItems.map((item) => {
+          {visibleItems.map((item) => {
             const Icon = item.icon;
 
             return (
@@ -101,18 +113,6 @@ export default function Sidebar({ open = true, onClose }) {
         </nav>
 
         <div className="sidebar-bottom">
-          <div className="sidebar-section-label">PREFERENCES</div>
-
-          <NavLink to="/settings" className="sidebar-link" onClick={onClose}>
-            <Settings size={19} strokeWidth={1.8} />
-            <span>Settings</span>
-          </NavLink>
-
-          <NavLink to="/help" className="sidebar-link" onClick={onClose}>
-            <CircleHelp size={19} strokeWidth={1.8} />
-            <span>Help & Support</span>
-          </NavLink>
-
           <div className="sidebar-ai-card">
             <div className="sidebar-ai-icon">
               <Sparkles size={18} />

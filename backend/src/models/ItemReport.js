@@ -39,9 +39,32 @@ const itemReportSchema = new mongoose.Schema(
         },
 
         imageUrl: {
-            type: String,
-            default: ""
+    type: String,
+    default: ""
+},
+
+imageFileId: {
+    type: String,
+    default: ""
+},
+
+        estimatedReplacementValueInr: { type: Number, min: 0 },
+        valueTier: { type: String, enum: ["low", "intermediate", "high"] },
+        ownershipQuestions: {
+            type: [{
+                prompt: { type: String, required: true, trim: true, maxlength: 300 },
+                verifier: {
+                    salt: { type: String, required: true },
+                    hash: { type: String, required: true }
+                }
+            }],
+            default: undefined,
+            select: false
         },
+
+        custodyStatus: { type: String, enum: ["with_finder", "with_local_admin", "with_owner"], default: undefined },
+        custodianUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        custodianAssignmentId: { type: mongoose.Schema.Types.ObjectId, ref: "LocalAdminAssignment", default: null },
 
         status: {
             type: String,

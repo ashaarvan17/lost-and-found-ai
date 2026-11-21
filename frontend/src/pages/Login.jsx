@@ -2,7 +2,7 @@
 // frontend/src/pages/Login.jsx
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Search,
   Mail,
@@ -17,6 +17,7 @@ import "../styles/pages.css";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,6 +29,7 @@ export default function Login() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const registrationMessage = location.state?.message || "";
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -70,7 +72,7 @@ export default function Login() {
 
       setSuccess("Login successful! Redirecting...");
 
-      navigate("/dashboard", { replace: true });
+      navigate(result.user?.role === "admin" ? "/admin" : "/dashboard", { replace: true });
     } catch (err) {
       setError(
         err.message ||
@@ -103,6 +105,8 @@ export default function Login() {
             Continue your journey to reunite lost belongings.
           </p>
         </div>
+
+        <p className="auth-approval-notice auth-login-note">One secure sign-in works for regular accounts, approved Local Admins, and the Super Admin. Access is determined by your approved account and active area assignments.</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label htmlFor="email">Email address</label>
@@ -165,6 +169,8 @@ export default function Login() {
             </p>
           )}
 
+          {registrationMessage && <p className="auth-success" role="status">{registrationMessage}</p>}
+
           {success && (
             <p role="status">
               {success}
@@ -188,6 +194,7 @@ export default function Login() {
           Don't have an account?{" "}
           <Link to="/register">Create one</Link>
         </p>
+        <p className="auth-switch"><Link to="/admin/login">Super Admin sign in</Link></p>
       </div>
     </div>
   );

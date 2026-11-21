@@ -1,3 +1,5 @@
+//frontend/src/pages/ItemDetails.jsx
+
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -10,7 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-import { getReportById } from "../services/api";
+import { getReportById, resolveImageUrl } from "../services/api";
 import "../styles/pages.css";
 
 export default function ItemDetails() {
@@ -19,6 +21,7 @@ export default function ItemDetails() {
   const [item, setItem] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [failedImageUrl, setFailedImageUrl] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -42,6 +45,7 @@ export default function ItemDetails() {
           );
         }
       } finally {
+
         if (isMounted) {
           setIsLoading(false);
         }
@@ -85,6 +89,8 @@ export default function ItemDetails() {
   }
 
   const isFound = item.type?.toLowerCase() === "found";
+  const imageUrl = resolveImageUrl(item.imageUrl);
+  const hasImage = imageUrl && failedImageUrl !== imageUrl;
 
   const formattedDate = item.date
     ? new Date(item.date).toLocaleDateString("en-IN", {
@@ -108,18 +114,15 @@ export default function ItemDetails() {
       </div>
 
       <div className="content-panel">
-       
-<div className="item-image-wrapper">
-  {item.imageUrl ? (
+
+<div className="item-image-wrapper item-details-image-wrapper">
+  {hasImage ? (
     <img
-  src={
-    item.imageUrl?.startsWith("http")
-      ? item.imageUrl
-      : `http://localhost:4000${item.imageUrl?.startsWith("/") ? "" : "/"}${item.imageUrl}`
-  }
-  alt={item.title}
-  className="item-image"
-/>
+      src={imageUrl}
+      alt={item.title}
+      className="item-image"
+      onError={() => setFailedImageUrl(imageUrl)}
+    />
   ) : (
     <div className="item-image-placeholder">
       <Package size={42} />
@@ -127,7 +130,7 @@ export default function ItemDetails() {
     </div>
   )}
 
-          
+
 
           <span
             className={`status-badge ${

@@ -4,14 +4,56 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FileText, Plus, Search } from "lucide-react";
-import { getMyReports } from "../services/api";
+import { getMyReports, resolveImageUrl, updateOwnershipQuestions, getLocalAdminsForReport, getRecoveryTransactionsForReport, createDeposit, generateRecoveryOtp } from "../services/api";
 import "../styles/pages.css";
+
+function ReportImage({ report }) {
+  const [failedImageUrl, setFailedImageUrl] = useState("");
+  const imageUrl = resolveImageUrl(report.imageUrl);
+
+  if (!imageUrl || failedImageUrl === imageUrl) {
+    return <FileText size={22} />;
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={report.title}
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        display: "block",
+        borderRadius: "inherit",
+      }}
+      onError={() => setFailedImageUrl(imageUrl)}
+    />
+  );
+}
+
+function DepositPanel({ report }) {
+  const [admins, setAdmins] = useState([]); const [transactions, setTransactions] = useState([]); const [assignmentId, setAssignmentId] = useState(""); const [otp, setOtp] = useState(""); const [message, setMessage] = useState("");
+  async function reload() { try { const [a, t] = await Promise.all([getLocalAdminsForReport(report._id), getRecoveryTransactionsForReport(report._id)]); setAdmins(a); setTransactions(t); } catch (err) { setMessage(err.message); } }
+  useEffect(() => {
+    let active = true;
+    Promise.all([getLocalAdminsForReport(report._id), getRecoveryTransactionsForReport(report._id)]).then(([available, existing]) => {
+      if (active) { setAdmins(available); setTransactions(existing); }
+    }).catch((err) => { if (active) setMessage(err.message); });
+    return () => { active = false; };
+  }, [report._id]);
+  async function start() { try { await createDeposit(report._id, assignmentId); setMessage("Deposit transaction created. Generate its OTP below."); await reload(); } catch (err) { setMessage(err.message); } }
+  async function generate(id) { try { const result = await generateRecoveryOtp(id); setOtp(result.otp); setMessage("Give this OTP to the assigned Local Admin only when handing over the item."); await reload(); } catch (err) { setMessage(err.message); } }
+  return <section className="content-panel"><h3>Deposit with a Local Admin</h3>{admins.length > 0 && <div><select aria-label="Local Admin" value={assignmentId} onChange={(e) => setAssignmentId(e.target.value)}><option value="">Select an assigned Local Admin</option>{admins.map((a) => <option value={a.assignmentId} key={a.assignmentId}>{a.name} · {a.area}</option>)}</select><button className="button button-secondary" type="button" disabled={!assignmentId} onClick={start}>Create deposit transaction</button></div>}{transactions.filter((tx) => tx.purpose === "local_admin_deposit").map((tx) => <p key={tx.id}>{tx.status} · {tx.id}{tx.status !== "completed" && <button type="button" className="button button-secondary" onClick={() => generate(tx.id)}>Generate deposit OTP</button>}</p>)}{otp && <p role="status"><strong>One-time deposit OTP: {otp}</strong></p>}{message && <p role="status">{message}</p>}</section>;
+}
 
 export default function MyReports() {
   const [filter, setFilter] = useState("All");
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState("");
+  const [questionDraft, setQuestionDraft] = useState([]);
+  const [saveMessage, setSaveMessage] = useState("");
 
   useEffect(() => {
     async function fetchReports() {
@@ -60,6 +102,20 @@ export default function MyReports() {
     if (report.status === "closed") return "Closed";
 
     return "Active";
+  }
+
+  function editQuestions(report) {
+    setEditingId(report._id);
+    setQuestionDraft((report.ownershipQuestions || []).map(({ prompt }) => ({ prompt, expectedAnswer: "" })));
+    setSaveMessage("");
+  }
+
+  async function saveQuestions(report) {
+    try {
+      await updateOwnershipQuestions(report._id, questionDraft);
+      setSaveMessage({ id: report._id, text: "Questions saved for future claims. Existing claim snapshots are unchanged." });
+      setEditingId("");
+    } catch (err) { setSaveMessage({ id: report._id, text: err.message }); }
   }
 
   return (
@@ -122,24 +178,8 @@ export default function MyReports() {
             return (
               <article className="report-row" key={report._id}>
                 <div className="report-row-icon">
-  {report.imageUrl ? (
-    <img
-      src={`http://localhost:4000${report.imageUrl}`}
-      alt={report.title}
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        borderRadius: "inherit",
-      }}
-      onError={(event) => {
-        event.currentTarget.style.display = "none";
-      }}
-    />
-  ) : (
-    <FileText size={22} />
-  )}
-</div>
+                  <ReportImage report={report} />
+                </div>
 
                 <div className="report-row-content">
                   <h3>{report.title}</h3>
@@ -159,6 +199,8 @@ export default function MyReports() {
                       View Details
                     </Link>
                   </div>
+                  {type === "Found" && <div style={{ marginTop: 10 }}><small>Verification tier: {report.valueTier || "Needs review"} · {report.estimatedReplacementValueInr ?? "—"} INR</small><div><button type="button" className="button button-secondary" onClick={() => editQuestions(report)}>Edit ownership questions</button></div>{editingId === report._id && <section className="content-panel"><p>Re-enter each expected answer. Only questions are shown here; answer verifiers stay private.</p>{questionDraft.map((question, index) => <div className="form-grid" key={index}><label className="form-field form-field-full"><span>Question {index + 1}</span><input value={question.prompt} onChange={(event) => setQuestionDraft((current) => current.map((row, i) => i === index ? { ...row, prompt: event.target.value } : row))} required /></label><label className="form-field form-field-full"><span>Expected answer {index + 1}</span><input value={question.expectedAnswer} onChange={(event) => setQuestionDraft((current) => current.map((row, i) => i === index ? { ...row, expectedAnswer: event.target.value } : row))} required /></label></div>)}<button type="button" className="button button-primary" onClick={() => saveQuestions(report)}>Save questions</button><button type="button" className="button button-secondary" onClick={() => setEditingId("")}>Cancel</button></section>}{saveMessage?.id === report._id && <p role="status">{saveMessage.text}</p>}</div>}
+                  {type === "Found" && report.status === "active" && <DepositPanel report={report} />}
                 </div>
 
                 <div className="report-row-status">

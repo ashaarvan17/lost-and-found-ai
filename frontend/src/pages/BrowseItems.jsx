@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal, PackageSearch } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import ItemCard from "../components/ItemCard";
 import { getAllReports } from "../services/api";
 import "../styles/pages.css";
 
 export default function BrowseItems() {
-  const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("q") || "");
   const [status, setStatus] = useState("All");
 
   const [items, setItems] = useState([]);
@@ -23,32 +25,26 @@ export default function BrowseItems() {
 
         const reports = await getAllReports();
 
-        // Convert MongoDB reports into the format expected by ItemCard.
-        const formattedItems = reports.map((report) => ({
-          id: report._id,
-          title: report.title,
-          category: report.category,
-          location: report.location,
-          date: report.date
-            ? new Date(report.date).toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })
-            : "Date unavailable",
-          status: report.type
-            ? report.type.charAt(0).toUpperCase() +
-              report.type.slice(1).toLowerCase()
-            : "Lost",
-          description: report.description,
-          image: report.imageUrl
-  ? report.imageUrl.startsWith("http")
-    ? report.imageUrl
-    : `http://localhost:4000${
-        report.imageUrl.startsWith("/") ? "" : "/"
-      }${report.imageUrl}`
-  : "",
-        }));
+        // Found reports remain private; active and resolved lost reports are public.
+        const formattedItems = reports
+          .filter((report) => report.type === "lost" && ["active", "resolved"].includes(report.status))
+          .map((report) => ({
+            id: report._id,
+            kind: "Lost",
+            title: report.title,
+            category: report.category,
+            location: report.location,
+            date: report.date
+              ? new Date(report.date).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "Date unavailable",
+            status: report.status === "resolved" ? "Resolved" : "Lost",
+            description: report.description,
+            image: report.imageUrl || "",
+          }));
 
         setItems(formattedItems);
       } catch (err) {
@@ -80,7 +76,7 @@ export default function BrowseItems() {
       );
 
       const matchesStatus =
-        status === "All" || item.status === status;
+        status === "All" || item.kind === status;
 
       return matchesSearch && matchesStatus;
     });
@@ -121,7 +117,6 @@ export default function BrowseItems() {
           >
             <option value="All">All Items</option>
             <option value="Lost">Lost Items</option>
-            <option value="Found">Found Items</option>
           </select>
         </div>
       </div>

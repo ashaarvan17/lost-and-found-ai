@@ -1,14 +1,28 @@
 //frontend/src/components/Navbar.jsx
 
-import { Link, NavLink } from "react-router-dom";
-import { Search, Menu, X, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Search, Menu, X, Sparkles, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getCurrentUser, logoutUser } from "../services/api";
 import "./navbar.css";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return undefined;
+    let active = true;
+    getCurrentUser().then(({ user: current }) => { if (active) setUser(current); }).catch((error) => {
+      if (active && [401, 403].includes(error.status)) { logoutUser(); setUser(null); }
+    });
+    return () => { active = false; };
+  }, []);
 
   const closeMenu = () => setMenuOpen(false);
+  function signOut() { logoutUser(); setUser(null); closeMenu(); navigate("/login"); }
+  const destination = user?.role === "admin" ? "/admin" : "/dashboard";
 
   return (
     <header className="navbar">
@@ -52,6 +66,10 @@ export default function Navbar() {
           </a>
 
           <div className="navbar-actions">
+            {user ? <>
+            <Link to={destination} className="button button-secondary" onClick={closeMenu}>{user.role === "admin" ? "Super Admin" : "Workspace"}</Link>
+            <button type="button" className="button button-secondary" onClick={signOut}><LogOut size={16} /> Sign out</button>
+            </> : <>
             <Link
               to="/login"
               className="button button-secondary"
@@ -67,6 +85,7 @@ export default function Navbar() {
             >
               Get Started
             </Link>
+            </>}
           </div>
         </nav>
       </div>

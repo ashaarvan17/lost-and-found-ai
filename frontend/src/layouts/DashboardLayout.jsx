@@ -1,20 +1,44 @@
 
 // frontend/src/layouts/DashboardLayout.jsx
 
-import { useState } from "react";
-import { Outlet, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
 import {
   Menu,
-  Bell,
   UserRound,
   Search,
+  LogOut,
 } from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
+import { getCurrentUser, logoutUser } from "../services/api";
 import "./layouts.css";
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let active = true;
+    getCurrentUser().then(({ user: current }) => {
+      if (active) { setUser(current); localStorage.setItem("user", JSON.stringify(current)); }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  function signOut() {
+    logoutUser();
+    navigate("/login", { replace: true });
+  }
+
+  function searchItems(event) {
+    event.preventDefault();
+    navigate(`/browse${searchQuery.trim() ? `?q=${encodeURIComponent(searchQuery.trim())}` : ""}`);
+  }
+
+  const accountLabel = user?.role === "admin" ? "Super Admin" : user?.isLocalAdmin ? "Local Admin" : user?.accountStatus === "local_admin_approved" ? "Approved · awaiting area" : "Member";
 
   return (
     <div className="dashboard-layout">
@@ -22,6 +46,7 @@ export default function DashboardLayout() {
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        user={user}
       />
 
       {/* Main dashboard area */}
@@ -39,50 +64,39 @@ export default function DashboardLayout() {
               <Menu size={22} />
             </button>
 
-            <div className="dashboard-search">
+            <form className="dashboard-search" onSubmit={searchItems}>
               <Search size={18} />
 
               <input
                 type="search"
                 placeholder="Search items, reports..."
                 aria-label="Search items and reports"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
               />
 
-              <span className="search-shortcut">Search</span>
-            </div>
+              <button type="submit" className="search-shortcut">Search</button>
+            </form>
           </div>
 
           <div className="dashboard-header-actions">
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Notifications"
-              title="Notifications"
-            >
-              <Bell size={20} />
-              <span className="notification-dot" />
-            </button>
-
-            <Link
-              to="/settings"
-              className="dashboard-profile"
-              aria-label="Open profile settings"
-            >
+            <div className="dashboard-profile">
               <span className="profile-avatar">
                 <UserRound size={20} />
               </span>
 
               <span className="profile-info">
-                <strong>My Account</strong>
-                <small>Member</small>
+                <strong>{user?.name || "My Account"}</strong>
+                <small>{accountLabel}</small>
               </span>
-            </Link>
+            </div>
+            <button type="button" className="icon-button" onClick={signOut} aria-label="Sign out" title="Sign out"><LogOut size={18} /></button>
           </div>
         </header>
 
         {/* Current dashboard page */}
         <main className="dashboard-content">
-          <Outlet />
+          <Outlet context={{ user, accountLabel }} />
         </main>
       </div>
     </div>
